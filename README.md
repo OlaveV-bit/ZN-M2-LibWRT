@@ -1,10 +1,5 @@
 # OpenWrt / LibWrt 云编译项目 (兆能 ZN-M2 / IPQ60XX 专用版)
 
-[![GitHub Actions Status](https://img.shields.io/badge/Build-GitHub%20Actions-blue?logo=github-actions)](../../actions)
-[![Target Device](https://img.shields.io/badge/Device-ZN--M2%20(IPQ60XX)-orange)]()
-[![Kernel Version](https://img.shields.io/badge/Kernel-Linux%206.12.x-green)]()
-[![NSS Acceleration](https://img.shields.io/badge/Qualcomm%20NSS-v11.4-red)]()
-
 本项目基于 **GitHub Actions** 实现全自动化云端编译，专为 **兆能 ZN-M2 (Qualcomm IPQ60XX)** 路由器深度定制。项目采用 `laipeng668/openwrt-6.x`（`25.12-nss` 分支）作为底层源码，集成高通 **NSS (Network Subsystem) v11.4** 硬件网络加速引擎与 **Linux 6.12.x** 内核，针对高负载网络转发与科学上网场景进行了极致精简与性能调优。
 
 ---
