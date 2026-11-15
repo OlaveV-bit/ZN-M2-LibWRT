@@ -102,6 +102,15 @@ jobs:
         cd $OPENWRT_PATH
         ./scripts/feeds update -a
         ./scripts/feeds install -a
+
+    - name: Fix Rust LLVM CI Download(修复Rust编译404问题)
+      run: |
+        cd $OPENWRT_PATH
+        # 直接修改 OpenWrt Rust 包的 Makefile，禁用 download-ci-llvm
+        if [ -f "feeds/packages/lang/rust/Makefile" ]; then
+          sed -i 's/--set=llvm\.download-ci-llvm=true/--set=llvm.download-ci-llvm=false/g' feeds/packages/lang/rust/Makefile
+          echo "已成功禁用 feeds/packages/lang/rust/Makefile 中的 download-ci-llvm"
+        fi
   
     - name: Load Custom Configuration(加载自定义配置)
       run: |
