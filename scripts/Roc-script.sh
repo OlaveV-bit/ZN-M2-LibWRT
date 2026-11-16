@@ -24,16 +24,20 @@ rm -rf feeds/packages/net/ariang
 # 3. 彻底清理 PassWall 的依赖组件 (释放空间)
 rm -rf feeds/packages/net/{xray-core,v2ray-geodata,sing-box,chinadns-ng,dns2socks,hysteria,ipt2socks,microsocks,naiveproxy,shadowsocks-libev,shadowsocks-rust,shadowsocksr-libev,simple-obfs,tcping,trojan-plus,tuic-client,v2ray-plugin,xray-plugin,geoview,shadow-tls}
 
-# 4. 更新 Golang 版本 (直接稀疏克隆并精准移动，避免层级错误)
+# 4. 更新 Golang 版本 (加入安全性判断)
 rm -rf feeds/packages/lang/golang
 git clone --depth=1 -b master --single-branch --filter=blob:none --sparse https://github.com/laipeng668/packages temp_pkg
 cd temp_pkg && git sparse-checkout set lang/golang
-mv -f lang/golang ../feeds/packages/lang/golang
+if [ -d "lang/golang" ]; then
+    mv -f lang/golang ../feeds/packages/lang/golang
+elif [ -d "golang" ]; then
+    mv -f golang ../feeds/packages/lang/golang
+fi
 cd .. && rm -rf temp_pkg
 
-# 5. 安装 OpenClash (直接放入 package 目录即可，无需 feeds install)
+# 5. 安装 OpenClash (直接放入 package 目录)
 rm -rf package/luci-app-openclash
 git clone --depth=1 https://github.com/vernesong/OpenClash package/luci-app-openclash
 
-# 6. 重新建立 packages feed 的索引（仅针对替换过的 golang）
+# 6. 重新建立 packages feed 的索引
 ./scripts/feeds install -a -p packages
