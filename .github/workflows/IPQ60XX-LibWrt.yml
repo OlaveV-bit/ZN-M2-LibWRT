@@ -106,7 +106,6 @@ jobs:
     - name: Fix Rust LLVM CI Download(修复Rust编译404问题)
       run: |
         cd $OPENWRT_PATH
-        # 直接修改 OpenWrt Rust 包的 Makefile，禁用 download-ci-llvm
         if [ -f "feeds/packages/lang/rust/Makefile" ]; then
           sed -i 's/--set=llvm\.download-ci-llvm=true/--set=llvm.download-ci-llvm=false/g' feeds/packages/lang/rust/Makefile
           echo "已成功禁用 feeds/packages/lang/rust/Makefile 中的 download-ci-llvm"
@@ -146,7 +145,6 @@ jobs:
         cp $OPENWRT_PATH/.config IPQ60XX.config
         mv config.buildinfo IPQ60XX.config.buildinfo
         mv libwrt-qualcommax-ipq60xx.manifest IPQ60XX.manifest
-        # 确保目录存在再移动 apk
         mkdir -p packages
         find $OPENWRT_PATH/bin/packages/ -name "*.apk" -exec cp {} packages/ \; 2>/dev/null || true
         tar -zcf IPQ60XX.Packages.tar.gz packages
@@ -175,14 +173,9 @@ jobs:
           - 固件内核版本：**${{ env.VERSION_KERNEL }}**
           - ${{ env.VERSION_INFO }}
 
-    - name: Delete Old Cache(删除旧缓存)
+    - name: Check Cache Status(检查缓存状态)
       if: always()
       run: |
-        # 获取缓存列表并删除
-        gh cache list --key ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}- --json key --jq '.[] | .key' | while read -r key; do
-          gh cache delete "$key"
-        done
-        # 输出缓存状态
         echo "========cache status========"
         [ -d "$OPENWRT_PATH/.ccache" ] && echo "ccache: $(du -sh $OPENWRT_PATH/.ccache | cut -f 1)" || echo "ccache: N/A"
         [ -d "$OPENWRT_PATH/staging_dir" ] && echo "staging: $(du -sh $OPENWRT_PATH/staging_dir | cut -f 1)" || echo "staging: N/A"
