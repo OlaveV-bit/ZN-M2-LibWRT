@@ -25,7 +25,8 @@
 | **内核版本** | Linux `6.12.x` |
 | **硬件加速** | 高通 NSS 固件 `11.4` (`CONFIG_NSS_FIRMWARE_VERSION_11_4=y`) |
 | **编译器优化** | `-O3 -pipe -march=armv8-a+crypto+crc -mcpu=cortex-a53+crypto+crc -mtune=cortex-a53` |
-| **内存管理** | 启用 `1GB` 内存配置策略 (`CONFIG_ATH11K_MEM_PROFILE_1GB=y`) + `ZRAM` 虚拟内存压缩 (默认 `LZ4` 算法) |
+| **内存管理** | 启用 `512M` 内存配置策略 (`CONFIG_ATH11K_MEM_PROFILE_512M=y`) + `ZRAM` 虚拟内存压缩 (默认 `LZ4` 算法) |
+| **CPU 调速器** | 内核完整集成 6 种调度器 (`performance`、`powersave`、`userspace`、`ondemand`、`conservative`、`schedutil`) |
 | **软件包格式** | 支持新版 OpenWrt `.apk` 软件包格式，编译产物自动打包 `IPQ60XX.Packages.tar.gz` |
 | **界面与语言** | 默认内置 `Argon` 主题 (`luci-theme-argon`)，包含繁体中文 (`zh_Hant`) 与基础中文语言包 |
 
@@ -39,7 +40,7 @@
   * **UPnP** (`luci-app-upnp`)：支持内网设备自动端口映射。
   * **动态域名解析** (`luci-app-ddns`)：支持主流域名服务商的 DDNS 动态解析。
 * **系统与硬件管理**：
-  * **CPU 调频** (`luci-app-cpufreq`)：支持查看 CPU 实时频率及调整调速器（Governor）策略。
+  * **CPU 调频** (`luci-app-cpufreq`)：配合内核完整编译的调度器模块，支持查看 CPU 实时频率及自由切换调度策略。
   * **磁盘管理** (`luci-app-diskman`)：支持 Web 界面可视化分区、格式化及挂载外接存储。
 * **底层维护与性能测试工具**：
   * 终端与编辑器：`tmux`、`nano-full`、`openssh-sftp-server`
@@ -72,7 +73,7 @@
 │       └── IPQ60XX-LibWrt.yml   # GitHub Actions 自动化编译与 Release 发布工作流
 ├── configs/
 │   ├── IPQ60XX.config           # 目标平台 (qualcommax/ipq60xx)、ZN-M2 机型、NSS 11.4 及禁用 Wi-Fi 配置
-│   └── General.config           # GCC 架构优化参数、ZRAM 压缩配置及插件启用/禁用清单
+│   └── General.config           # GCC 架构优化参数、ZRAM 压缩、CPU 调速器及插件启用/禁用清单
 └── scripts/
     └── Roc-script.sh            # 编译前自定义脚本（修改 IP、清理冗余包源码、更新 Golang、克隆 OpenClash）
 ```
@@ -90,7 +91,7 @@
 1. 点击仓库顶部菜单栏的 **Actions**。
 2. 在左侧工作流列表中选择 **`IPQ60XX-LibWrt`**。
 3. 点击右侧的 **`Run workflow`** 下拉按钮，再次点击绿色的 **`Run workflow`** 即可开始云端编译。
-4. 工作流内置了 **ccache 与 staging_dir 缓存机制**，首次编译约需 40~60 分钟，后续命中缓存后编译时间将大幅缩短。
+4. 工作流内置了 **ccache 与 staging_dir 持久化缓存机制**（编译结束仅检查状态而不删除缓存），首次编译约需 40~60 分钟，后续命中缓存后编译时间将大幅缩短。
 
 ### 第三步：获取固件
 编译成功后，工作流会自动整理产物并发布到仓库右侧的 **Releases** 页面（Tag 标签为 `IPQ60XX`），包含以下文件：
@@ -127,7 +128,7 @@
    ```
 4. **添加额外插件**：
    * 在 `configs/General.config` 末尾追加 `CONFIG_PACKAGE_luci-app-xxx=y`。
-   * **注意**：添加前务必检查 `scripts/Roc-script.sh` 的第 3 步，确保你想要添加的插件没有在 `rm -rf` 清理列表中被删除源码。
+   * **注意**：添加前务必检查 `scripts/Roc-script.sh` 的第 2~3 步，确保你想要添加的插件没有在 `rm -rf` 清理列表中被删除源码。
 
 ---
 
