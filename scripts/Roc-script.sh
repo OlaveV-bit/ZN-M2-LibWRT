@@ -57,6 +57,9 @@ else
     rm -rf package/openclash-src
 fi
 
+# 5.5 清掉 feeds 里被我删掉的包残留的悬空软链接，避免扫描期报错
+find package/feeds -xtype l -delete 2>/dev/null || true
+
 # 6. 主题 Design（luci feed 里没有，直接放入 package 目录）
 rm -rf package/luci-theme-design
 if ! git clone --depth=1 -b js https://github.com/0x676e67/luci-theme-design.git package/luci-theme-design; then
