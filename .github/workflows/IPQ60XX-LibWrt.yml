@@ -12,45 +12,50 @@ env:
   CONFIG_FILE: configs/IPQ60XX.config
   GENERAL_CONFIG_FILE: configs/General.config
   DIY_SCRIPT: scripts/Roc-script.sh
-  CLASH_KERNEL: amd64
   FIRMWARE_TAG: IPQ60XX
   TZ: Asia/Shanghai
 
 jobs:
   Build:
     runs-on: ubuntu-24.04
-    # --- 核心修复：添加权限声明 ---
+    timeout-minutes: 350
     permissions:
       contents: write
       actions: write
-    # --------------------------
 
     steps:
+    - name: Free Disk Space(释放磁盘空间)
+      run: |
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc 2>/dev/null || true
+        sudo rm -rf /usr/local/share/boost /usr/local/.ghcup /usr/lib/google-cloud-sdk 2>/dev/null || true
+        sudo apt-get clean
+        sudo docker image prune --all --force 2>/dev/null || true
+        df -hT
+
     - name: Check Server Performance(检查服务器性能)
       run: |
         echo "警告⚠"
         echo "分配的服务器性能有限，若选择的插件过多，务必注意CPU性能！"
         echo -e "已知CPU型号（降序）：7763，8370C，8272CL，8171M，E5-2673 \n"
         echo "--------------------------CPU信息--------------------------"
-        echo "CPU物理数量：$(cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l)"
-        echo -e "CPU核心信息：$(cat /proc/cpuinfo | grep name | cut -f2 -d: | uniq -c) \n"
+        echo "CPU物理数量：$(grep -c "physical id" /proc/cpuinfo)"
+        echo -e "CPU核心信息：$(grep name /proc/cpuinfo | cut -f2 -d: | uniq -c) \n"
         echo "--------------------------内存信息--------------------------"
-        echo "已安装内存详细信息："
-        echo -e "$(sudo lshw -short -C memory | grep GiB) \n"
+        echo -e "$(sudo lshw -short -C memory 2>/dev/null | grep GiB || free -h) \n"
         echo "--------------------------硬盘信息--------------------------"
-        echo "硬盘数量：$(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
+        df -hT
 
     - name: Initialization Environment(初始化环境)
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
         sudo -E apt-get -y update
-        sudo -E apt-get -y install $(curl -fsSL ophub.org/ubuntu2404-make-openwrt-depends)
+        sudo -E apt-get -y install $(curl -fsSL https://ophub.org/ubuntu2404-make-openwrt-depends)
         sudo -E systemctl daemon-reload
         sudo timedatectl set-timezone "$TZ"
 
     - name: Checkout(检出代码)
-      uses: actions/checkout@main
+      uses: actions/checkout@v4
 
     - name: Clone Source Code(克隆源代码)
       run: |
@@ -63,8 +68,8 @@ jobs:
         VERSION_INFO=$(git show -s --date=short --format="时间: %cd<br/>内容: %s<br/>hash: %H")
         echo "VERSION_INFO=$VERSION_INFO" >> $GITHUB_ENV
         # 尝试匹配内核版本
-        VERSION_KERNEL=$(grep -oP 'LINUX_KERNEL_HASH-\K[0-9]+\.[0-9]+\.[0-9]+' target/linux/generic/kernel-6.12 || echo "6.12.x")
-        echo "VERSION_KERNEL=$VERSION_KERNEL" >> $GITHUB_ENV
+        VERSION_KERNEL=$(grep -oP 'LINUX_KERNEL_HASH-\K[0-9]+\.[0-9]+\.[0-9]+' target/linux/generic/kernel-6.12 2>/dev/null | head -1 || true)
+        echo "VERSION_KERNEL=${VERSION_KERNEL:-6.12.x}" >> $GITHUB_ENV
 
     - name: Generate Variables(生成变量)
       run: |
@@ -73,18 +78,18 @@ jobs:
         make defconfig > /dev/null 2>&1
         SOURCE_REPO="$(echo $REPO_URL | awk -F '/' '{print $(NF)}')"
         echo "SOURCE_REPO=$SOURCE_REPO" >> $GITHUB_ENV
-        DEVICE_TARGET=$(cat .config | grep CONFIG_TARGET_BOARD | awk -F '"' '{print $2}')
+        DEVICE_TARGET=$(grep CONFIG_TARGET_BOARD .config | awk -F '"' '{print $2}')
         echo "DEVICE_TARGET=$DEVICE_TARGET" >> $GITHUB_ENV
-        DEVICE_SUBTARGET=$(cat .config | grep CONFIG_TARGET_SUBTARGET | awk -F '"' '{print $2}')
+        DEVICE_SUBTARGET=$(grep CONFIG_TARGET_SUBTARGET .config | awk -F '"' '{print $2}')
         echo "DEVICE_SUBTARGET=$DEVICE_SUBTARGET" >> $GITHUB_ENV
         echo "HASH=$(git log -1 --pretty=format:'%h')" >> $GITHUB_ENV
-        echo "CACHE_DATE=$(date +"%Y-%m-%d %H:%M:%S")" >> $GITHUB_ENV
 
     - name: Cache Toolchain(缓存工具链)
-      uses: actions/cache@main
+      uses: actions/cache@v4
       with:
-        key: ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}-${{ env.HASH }} ${{ env.CACHE_DATE }}
-        restore-keys: ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}-
+        key: ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}-${{ env.HASH }}
+        restore-keys: |
+          ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}-
         path: |
           ${{ env.OPENWRT_PATH }}/.ccache
           ${{ env.OPENWRT_PATH }}/staging_dir
@@ -110,10 +115,10 @@ jobs:
           sed -i 's/--set=llvm\.download-ci-llvm=true/--set=llvm.download-ci-llvm=false/g' feeds/packages/lang/rust/Makefile
           echo "已成功禁用 feeds/packages/lang/rust/Makefile 中的 download-ci-llvm"
         fi
-  
+
     - name: Load Custom Configuration(加载自定义配置)
       run: |
-        chmod +x $DIY_SCRIPT
+        chmod +x $GITHUB_WORKSPACE/$DIY_SCRIPT
         cd $OPENWRT_PATH
         $GITHUB_WORKSPACE/$DIY_SCRIPT
 
@@ -143,8 +148,12 @@ jobs:
       run: |
         cd $OPENWRT_PATH/bin/targets/*/*
         cp $OPENWRT_PATH/.config IPQ60XX.config
-        mv config.buildinfo IPQ60XX.config.buildinfo
-        mv libwrt-qualcommax-ipq60xx.manifest IPQ60XX.manifest
+        # 启用 PER_DEVICE_ROOTFS 后 manifest 会带设备名后缀，这里用通配匹配避免改名失败
+        MANIFEST=$(ls *.manifest 2>/dev/null | head -1)
+        if [ -n "$MANIFEST" ]; then
+          mv "$MANIFEST" IPQ60XX.manifest
+        fi
+        [ -f config.buildinfo ] && mv config.buildinfo IPQ60XX.config.buildinfo
         mkdir -p packages
         find $OPENWRT_PATH/bin/packages/ -name "*.apk" -exec cp {} packages/ \; 2>/dev/null || true
         tar -zcf IPQ60XX.Packages.tar.gz packages
@@ -153,10 +162,11 @@ jobs:
 
     - name: Upload Firmware To Release(发布固件)
       if: steps.compile.outputs.status == 'success'
-      uses: ncipollo/release-action@main
+      uses: ncipollo/release-action@v1
       with:
         name: ${{ env.DATE }} for ZN-M2
         allowUpdates: true
+        removeArtifacts: true
         tag: ${{ env.FIRMWARE_TAG }}
         token: ${{ secrets.GITHUB_TOKEN }}
         artifacts: ${{ env.FIRMWARE_PATH }}/*
@@ -179,5 +189,3 @@ jobs:
         echo "========cache status========"
         [ -d "$OPENWRT_PATH/.ccache" ] && echo "ccache: $(du -sh $OPENWRT_PATH/.ccache | cut -f 1)" || echo "ccache: N/A"
         [ -d "$OPENWRT_PATH/staging_dir" ] && echo "staging: $(du -sh $OPENWRT_PATH/staging_dir | cut -f 1)" || echo "staging: N/A"
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
